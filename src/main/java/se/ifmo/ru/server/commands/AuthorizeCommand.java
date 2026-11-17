@@ -1,30 +1,28 @@
 package se.ifmo.ru.server.commands;
 
 import se.ifmo.ru.common.Message;
-import se.ifmo.ru.common.ProtocolParser;
-import se.ifmo.ru.common.storage.UrlUserStorage;
+import se.ifmo.ru.common.MessageManager;
+import se.ifmo.ru.common.MessageType;
+import se.ifmo.ru.common.dto.AuthResponseDto;
+import se.ifmo.ru.server.ServerContext;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.util.HashMap;
 import java.util.UUID;
 
-public class AuthorizeCommand implements Command{
-    @Override
-    public void execute(Message msg) {
-        BufferedWriter bufferedWriter = msg.getBufferedWriter();
-        try{
-            UUID uid = msg.getId();
-            if ((uid = .getUserUUID(authJson).id()) == null) {
-                UUID id = UUID.randomUUID();
-                bufferedWriter.write(id.toString());
-                UrlUserStorage.//put
-                return id;
-            }
-            return uid;
-        }
-        catch (Exception e) {
+/**
+ * Выдаёт (или подтверждает) UUID пользователя.
+ */
+public class AuthorizeCommand implements Command {
 
-        }
+    @Override
+    public MessageType type() {
+        return MessageType.AUTH_REQ;
+    }
+
+    @Override
+    public Message handle(Message request, ServerContext ctx) {
+        UUID user = ctx.service().authenticate(request.userUuid());
+        Message response = new Message(request.id(), user, MessageType.AUTH_RESP,
+                MessageManager.payload(new AuthResponseDto(user)));
+        return response;
     }
 }

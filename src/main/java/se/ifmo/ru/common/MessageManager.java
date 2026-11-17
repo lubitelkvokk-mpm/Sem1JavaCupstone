@@ -1,43 +1,51 @@
 package se.ifmo.ru.common;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import se.ifmo.ru.server.commands.AuthResponseCommand;
-import se.ifmo.ru.server.commands.AuthorizeCommand;
-import se.ifmo.ru.server.commands.Command;
-import se.ifmo.ru.server.commands.UrlCutCommand;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+public final class MessageManager {
 
-public class MessageManager {
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    public static String generateMessage(Message message) throws JsonProcessingException {
-        String json = mapper.writeValueAsString(message);
-        System.out.println(json);
-        return json;
+    private MessageManager() {
     }
 
-    private static Message parseMessage(String message) throws JsonProcessingException {
-        return mapper.readValue(message, Message.class);
-    }
-
-    public static void processMessage(String message, BufferedReader bufferedReader, BufferedWriter bufferedWriter) {
+    public static String toJson(Message message) {
         try {
-            Message msg = parseMessage(message);
-            msg.setBufferedReader(bufferedReader);
-            msg.setBufferedWriter(bufferedWriter);
-            Command cmd = switch (msg.getMessageType()) {
-                case MessageType.AUTH_REQ -> new AuthorizeCommand();
-                case AUTH_RESPONSE -> new AuthResponseCommand();
-                case STRING_CUT -> new UrlCutCommand();
-            };
-            cmd.execute(msg);
+            return MAPPER.writeValueAsString(message);
         } catch (Exception e) {
-            System.err.println("MessageManager: Ошибка парсинга сообщения");
+            throw new IllegalStateException("Не удалось сериализовать сообщение", e);
         }
     }
 
+    public static Message fromJson(String json) {
+        try {
+            return MAPPER.readValue(json, Message.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Некорректный JSON сообщения", e);
+        }
+    }
+
+    public static String payload(Object dto) {
+        try {
+            return MAPPER.writeValueAsString(dto);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось сериализовать payload", e);
+        }
+    }
+
+    public static <T> T payload(Message message, Class<T> type) {
+        try {
+            return MAPPER.readValue(message.payload(), type);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось разобрать payload сообщения", e);
+        }
+    }
 }
